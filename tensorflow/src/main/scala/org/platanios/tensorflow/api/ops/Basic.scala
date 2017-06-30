@@ -54,7 +54,7 @@ trait Basic {
     *                               the provided `shape`.
     */
   @throws[InvalidShapeException]
-  def constant(tensor: Tensor, dataType: DataType = null, shape: Shape = null, name: String = "Constant"): Output = {
+  def constant(tensor: Tensor[_], dataType: DataType = null, shape: Shape = null, name: String = "Constant"): Output = {
     val inferredDataType = if (dataType == null) tensor.dataType else dataType
     val inferredShape = if (shape == null) tensor.shape else shape
     val constantTensor = {

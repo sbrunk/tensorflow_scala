@@ -29,26 +29,11 @@ import java.nio.ByteOrder
   */
 private[api] object TensorFlowNative {
   private[api] class DataTypeOps(val dataType: DataType) extends AnyVal {
-    private[api] def tensorFromTFNativeHandle(nativeHandle: Long): Tensor = {
+    private[api] def tensorFromTFNativeHandle(nativeHandle: Long): Tensor[DataType] = {
       val tensor = dataType match {
-        case STRING =>
-          new StringTensor(
-            shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt)),
-            buffer = NativeTensor.buffer(nativeHandle).order(ByteOrder.nativeOrder),
-            order = RowMajorOrder)
-        case d: RealNumericDataType =>
-          new RealNumericTensor(
-            dataType = d, shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt)),
-            buffer = NativeTensor.buffer(nativeHandle).order(ByteOrder.nativeOrder),
-            order = RowMajorOrder)
-        case d: NumericDataType =>
-          new NumericTensor(
-            dataType = d, shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt)),
-            buffer = NativeTensor.buffer(nativeHandle).order(ByteOrder.nativeOrder),
-            order = RowMajorOrder)
-        case d: FixedSizeDataType =>
-          new FixedSizeTensor(
-            dataType = d, shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt)),
+        case STRING | _: FixedSizeDataType =>
+          new Tensor(
+            dataType = dataType, shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt)),
             buffer = NativeTensor.buffer(nativeHandle).order(ByteOrder.nativeOrder),
             order = RowMajorOrder)
         case d => throw InvalidDataTypeException(s"Tensors with data type '$d' are not supported on the Scala side.")

@@ -20,9 +20,7 @@ package org.platanios.tensorflow.api
   */
 package object tensors {
   private[api] trait API {
-    type Tensor = tensors.Tensor
-    type FixedSizeTensor = tensors.FixedSizeTensor
-    type NumericTensor = tensors.NumericTensor
+    type Tensor[T] = tensors.Tensor[T]
 
     val Tensor = tensors.Tensor
 

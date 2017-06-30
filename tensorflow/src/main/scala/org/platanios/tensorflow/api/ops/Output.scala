@@ -42,7 +42,7 @@ trait OutputConvertible {
   *
   * @author Emmanouil Antonios Platanios
   */
-sealed trait OutputLike extends OutputConvertible {
+trait OutputLike extends OutputConvertible {
   /** Graph where the op belongs. */
   def graph: Graph
 

@@ -33,7 +33,7 @@ import spire.math.{UByte, UShort}
   */
 sealed trait DataType {
   type ScalaType
-  implicit val supportedType: SupportedType[ScalaType]
+  implicit val supportedType: SupportedType[this.type#ScalaType]
 
   //region Data Type Properties
 
@@ -104,7 +104,7 @@ sealed trait DataType {
     * @throws UnsupportedOperationException For unsupported data types on the Scala side.
     */
   @throws[UnsupportedOperationException]
-  @inline def cast[T](value: T)(implicit evidence: SupportedType[T]): ScalaType = value.cast(this)
+  @inline def cast[T](value: T)(implicit evidence: SupportedType[T]): this.type#ScalaType = value.cast(this)
 
   /** Puts an element of this data type into the provided byte buffer.
     *
@@ -116,7 +116,7 @@ sealed trait DataType {
     * @throws UnsupportedOperationException For unsupported data types on the Scala side.
     */
   @throws[UnsupportedOperationException]
-  private[api] def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int
+  private[api] def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int
 
   /** Gets an element of this data type from the provided byte buffer.
     *
@@ -126,7 +126,7 @@ sealed trait DataType {
     * @throws UnsupportedOperationException For unsupported data types on the Scala side.
     */
   @throws[UnsupportedOperationException]
-  private[api] def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType
+  private[api] def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType
 
   override def toString: String = name
 
@@ -165,12 +165,12 @@ private[api] object STRING extends DataType {
   override val byteSize: Int    = -1
   override val priority: Int    = 1000
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     val stringBytes = element.getBytes(Charset.forName("UTF-8"))
     NativeTensor.setStringBytes(stringBytes, buffer.duplicate().position(index).asInstanceOf[ByteBuffer].slice())
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     val stringBytes = NativeTensor.getStringBytes(buffer.duplicate().position(index).asInstanceOf[ByteBuffer].slice())
     new String(stringBytes, Charset.forName("UTF-8"))
   }
@@ -185,12 +185,12 @@ private[api] object BOOLEAN extends FixedSizeDataType {
   override val byteSize: Int    = 1
   override val priority: Int    = 0
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.put(index, if (element) 1 else 0)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.get(index) == 1
   }
 }
@@ -206,12 +206,12 @@ private[api] object FLOAT32 extends RealNumericDataType {
   override val byteSize: Int    = 4
   override val priority: Int    = 220
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putFloat(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.getFloat(index)
   }
 }
@@ -225,12 +225,12 @@ private[api] object FLOAT64 extends RealNumericDataType {
   override val byteSize: Int    = 8
   override val priority: Int    = 230
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putDouble(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.getDouble(index)
   }
 }
@@ -248,12 +248,12 @@ private[api] object INT8 extends RealNumericDataType {
   override val byteSize: Int    = 1
   override val priority: Int    = 40
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.put(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.get(index)
   }
 }
@@ -267,12 +267,12 @@ private[api] object INT16 extends RealNumericDataType {
   override val byteSize: Int    = 2
   override val priority: Int    = 80
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putShort(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.getShort(index)
   }
 }
@@ -286,12 +286,12 @@ private[api] object INT32 extends RealNumericDataType {
   override val byteSize: Int    = 4
   override val priority: Int    = 100
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putInt(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.getInt(index)
   }
 }
@@ -305,12 +305,12 @@ private[api] object INT64 extends RealNumericDataType {
   override val byteSize: Int    = 8
   override val priority: Int    = 110
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putLong(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.getLong(index)
   }
 }
@@ -324,12 +324,12 @@ private[api] object UINT8 extends NumericDataType {
   override val byteSize: Int    = 1
   override val priority: Int    = 20
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.put(index, element.toByte)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     UByte(buffer.get(index))
   }
 }
@@ -343,12 +343,12 @@ private[api] object UINT16 extends NumericDataType {
   override val byteSize: Int    = 2
   override val priority: Int    = 60
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putChar(index, element.toChar)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     UShort(buffer.getChar(index))
   }
 }
@@ -362,12 +362,12 @@ private[api] object QINT8 extends RealNumericDataType {
   override val byteSize: Int    = 1
   override val priority: Int    = 30
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.put(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.get(index)
   }
 }
@@ -381,12 +381,12 @@ private[api] object QINT16 extends RealNumericDataType {
   override val byteSize: Int    = 2
   override val priority: Int    = 70
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putShort(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.getShort(index)
   }
 }
@@ -400,12 +400,12 @@ private[api] object QINT32 extends RealNumericDataType {
   override val byteSize: Int    = 4
   override val priority: Int    = 90
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putInt(index, element)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     buffer.getInt(index)
   }
 }
@@ -419,12 +419,12 @@ private[api] object QUINT8 extends NumericDataType {
   override val byteSize: Int    = 1
   override val priority: Int    = 10
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.put(index, element.toByte)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     UByte(buffer.get(index))
   }
 }
@@ -438,12 +438,12 @@ private[api] object QUINT16 extends NumericDataType {
   override val byteSize: Int    = 2
   override val priority: Int    = 50
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     buffer.putChar(index, element.toChar)
     byteSize
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     UShort(buffer.getChar(index))
   }
 }
@@ -457,11 +457,11 @@ private[api] object RESOURCE extends DataType {
   override val byteSize: Int    = -1
   override val priority: Int    = -1
 
-  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: ScalaType): Int = {
+  private[api] override def putElementInBuffer(buffer: ByteBuffer, index: Int, element: this.type#ScalaType): Int = {
     throw new UnsupportedOperationException("The resource data type is not supported on the Scala side.")
   }
 
-  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): ScalaType = {
+  private[api] override def getElementFromBuffer(buffer: ByteBuffer, index: Int): this.type#ScalaType = {
     throw new UnsupportedOperationException("The resource data type is not supported on the Scala side.")
   }
 }

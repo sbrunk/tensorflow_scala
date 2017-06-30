@@ -26,6 +26,7 @@ import spire.std._
   */
 sealed trait SupportedType[@specialized T]
     extends Any {
+  type DefaultTFType
   @inline def dataType: DataType
 
   @throws[UnsupportedOperationException]
@@ -109,11 +110,13 @@ object SupportedType {
 }
 
 private[types] class StringIsSupportedType extends SupportedType[String] {
+  override type DefaultTFType = STRING.type
   @inline override def dataType: DataType = STRING
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): String = value.toString
 }
 
 private[types] class BooleanIsSupportedType extends FixedSizeSupportedType[Boolean] {
+  override type DefaultTFType = BOOLEAN.type
   @inline override def dataType: FixedSizeDataType = BOOLEAN
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): Boolean = value match {
     case value: Boolean => value
@@ -127,6 +130,7 @@ private[types] class FloatIsSupportedType
         with FloatIsReal
         with ConvertableFromFloat
         with ConvertableToFloat {
+  override type DefaultTFType = FLOAT32.type
   @inline override def dataType: RealNumericDataType = FLOAT32
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): Float = value match {
     case value: Boolean => if (value) 1.0f else 0.0f
@@ -148,6 +152,7 @@ private[types] class DoubleIsSupportedType
         with DoubleIsReal
         with ConvertableFromDouble
         with ConvertableToDouble {
+  override type DefaultTFType = FLOAT64.type
   @inline override def dataType: RealNumericDataType = FLOAT64
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): Double = value match {
     case value: Boolean => if (value) 1.0 else 0.0
@@ -169,6 +174,7 @@ private[types] class ByteIsSupportedType
         with ByteIsReal
         with ConvertableFromByte
         with ConvertableToByte {
+  override type DefaultTFType = INT8.type
   @inline override def dataType: RealNumericDataType = INT8
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): Byte = value match {
     case value: Boolean => if (value) 1 else 0
@@ -190,6 +196,7 @@ private[types] class ShortIsSupportedType
         with ShortIsReal
         with ConvertableFromShort
         with ConvertableToShort {
+  override type DefaultTFType = INT16.type
   @inline override def dataType: RealNumericDataType = INT16
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): Short = value match {
     case value: Boolean => if (value) 1 else 0
@@ -211,6 +218,7 @@ private[types] class IntIsSupportedType
         with IntIsReal
         with ConvertableFromInt
         with ConvertableToInt {
+  override type DefaultTFType = INT32.type
   @inline override def dataType: RealNumericDataType = INT32
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): Int = value match {
     case value: Boolean => if (value) 1 else 0
@@ -232,6 +240,7 @@ private[types] class LongIsSupportedType
         with LongIsReal
         with ConvertableFromLong
         with ConvertableToLong {
+  override type DefaultTFType = INT64.type
   @inline override def dataType: RealNumericDataType = INT64
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): Long = value match {
     case value: Boolean => if (value) 1L else 0L
@@ -253,6 +262,7 @@ private[types] class UByteIsSupportedType
         with UByteIsReal
         with ConvertableFromUByte
         with ConvertableToUByte {
+  override type DefaultTFType = UINT8.type
   @inline override def dataType: NumericDataType = UINT8
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): UByte = value match {
     case value: Boolean => if (value) UByte(1) else UByte(0)
@@ -302,6 +312,7 @@ private[types] class UShortIsSupportedType
         with UShortIsReal
         with ConvertableFromUShort
         with ConvertableToUShort {
+  override type DefaultTFType = UINT16.type
   @inline override def dataType: NumericDataType = UINT16
   @inline override def cast[R: SupportedType](value: R, dataType: DataType): UShort = value match {
     case value: Boolean => if (value) UShort(1) else UShort(0)

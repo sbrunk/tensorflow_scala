@@ -18,7 +18,7 @@ package org.platanios.tensorflow.api.core
 import org.platanios.tensorflow.api.core.exception.InvalidShapeException
 import org.platanios.tensorflow.api.ops.{Basic, Output, OutputConvertible}
 import org.platanios.tensorflow.api.tensors.Tensor
-import org.platanios.tensorflow.api.types.{DataType, INT32}
+import org.platanios.tensorflow.api.types.{DataType, INT32, INT64}
 
 /** Represents the shape of a tensor computed by an op.
   *
@@ -298,7 +298,7 @@ final class Shape private (private val array: Array[Int]) extends OutputConverti
     * @param  dataType Data type to use for the tensor.
     * @return One-dimensional tensor representing this shape.
     */
-  def toTensor(dataType: DataType = INT32): Tensor = Tensor.fromSeq(dataType, asArray: _*)
+  def toTensor(dataType: DataType = INT32): Tensor[INT32.type] = Tensor.fromSeq(dataType, asArray: _*)
 
   /** Converts this shape to a one-dimensional "symbolic" tensor (i.e., a constant-valued op output).
     *
@@ -382,7 +382,7 @@ object Shape {
   def apply(dimensions: Array[Int]): Shape = new Shape(dimensions)
 
   private[api] trait Implicits {
-    implicit def shapeToTensor(shape: Shape): Tensor = shape.toTensor()
+    implicit def shapeToTensor(shape: Shape): Tensor[INT32.type] = shape.toTensor()
     implicit def shapeToOutput(shape: Shape): Output = Basic.constant(shape.toTensor())
   }
 
