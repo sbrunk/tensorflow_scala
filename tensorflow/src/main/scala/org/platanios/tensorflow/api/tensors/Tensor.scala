@@ -40,7 +40,7 @@ abstract class Tensor[T <: DataType] private[tensors] (
   val shape: Shape,
   val buffer: ByteBuffer,
   val order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)(private[api] implicit val factory: TensorFactory[T])
-  extends TensorLike with OutputConvertible {
+  extends RawTensor[T] with OutputConvertible {
 
   private[api] def flattenedIndex(indices: Array[Int]): Int = order.index(shape.asArray, indices)
   private[api] def flattenedIndexIterator: Iterator[Int] = order.indexIterator(shape.asArray)

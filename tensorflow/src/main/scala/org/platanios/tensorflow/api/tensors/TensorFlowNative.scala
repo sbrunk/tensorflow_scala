@@ -18,6 +18,7 @@ package org.platanios.tensorflow.api.tensors
 import org.platanios.tensorflow.api.Closeable
 import org.platanios.tensorflow.api.core.Shape
 import org.platanios.tensorflow.api.core.exception.InvalidDataTypeException
+import org.platanios.tensorflow.api.tensors.TensorFactory._
 import org.platanios.tensorflow.api.types._
 import org.platanios.tensorflow.api.utilities.Disposer
 import org.platanios.tensorflow.jni.{Tensor => NativeTensor}
@@ -28,16 +29,23 @@ import java.nio.ByteOrder
   * @author Emmanouil Antonios Platanios
   */
 private[api] object TensorFlowNative {
-  private[api] class DataTypeOps(val dataType: DataType) extends AnyVal {
-    private[api] def tensorFromTFNativeHandle(nativeHandle: Long): Tensor[DataType] = {
-      val tensor = dataType match {
-        case STRING | _: FixedSizeDataType =>
-          new Tensor(
-            dataType = dataType, shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt)),
-            buffer = NativeTensor.buffer(nativeHandle).order(ByteOrder.nativeOrder),
-            order = RowMajorOrder)
-        case d => throw InvalidDataTypeException(s"Tensors with data type '$d' are not supported on the Scala side.")
+  private[api] class DataTypeOps(val dataType: DataType) {
+    private[api] def tensorFromTFNativeHandle(nativeHandle: Long): RawTensor[DataType] = {
+      val shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt))
+      val buffer = NativeTensor.buffer(nativeHandle).order(ByteOrder.nativeOrder)
+      val factory = dataType match {
+        case STRING => StringTensorFactory
+        case BOOLEAN => BOOLEANTensorFactory
+        case FLOAT32 => FLOAT32TensorFactory
+        case FLOAT64 => FLOAT64TensorFactory
+        case INT8 => INT8TensorFactory
+        case INT16 => INT16TensorFactory
+        case INT32 => INT32TensorFactory
+        case INT64 => INT64TensorFactory
+        case UINT16 => UINT16TensorFactory
+        case _ => ??? // TODO complete
       }
+      val tensor: RawTensor[DataType] = factory.fromBuffer(shape, buffer, RowMajorOrder)
       // Keep track of references in the Scala side and notify the native library when the tensor is not referenced
       // anymore anywhere in the Scala side. This will let the native library free the allocated resources and prevent a
       // potential memory leak.
@@ -55,7 +63,7 @@ private[api] object TensorFlowNative {
     }
   }
 
-  private[api] class NativeViewOps(tensor: Tensor) {
+  private[api] class NativeViewOps(tensor: RawTensor[DataType]) {
     private[api] def nativeView: NativeView = {
       if (tensor.order != RowMajorOrder)
         throw new IllegalArgumentException("Only row-major tensors can be used in the TensorFlow native library.")
@@ -66,7 +74,7 @@ private[api] object TensorFlowNative {
 
   private[api] trait Implicits {
     implicit def dataTypeOps(dataType: DataType): DataTypeOps = new DataTypeOps(dataType)
-    implicit def nativeViewOps(tensor: Tensor): NativeViewOps = new NativeViewOps(tensor)
+    implicit def nativeViewOps(tensor: RawTensor[DataType]): NativeViewOps = new NativeViewOps(tensor)
   }
 
   private[api] object Implicits extends Implicits
