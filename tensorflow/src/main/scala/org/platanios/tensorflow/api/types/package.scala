@@ -34,6 +34,11 @@ package object types {
     type RealNumericDataType = types.RealNumericDataType
     type ComplexNumericDataType = types.ComplexNumericDataType
 
+    type UINT8 = types.UINT8.type
+    type FLOAT32 = types.FLOAT32.type
+    type FLOAT64 = types.FLOAT64.type
+    // TODO complete
+
     val DataType = types.DataType
 
     val STRING   = types.STRING

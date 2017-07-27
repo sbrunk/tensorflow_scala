@@ -21,16 +21,15 @@ import org.platanios.tensorflow.api.core.client.Session
 import org.platanios.tensorflow.api.ops.{Basic, ControlFlow, Op, Output, Text}
 import org.platanios.tensorflow.api.ops.variables.CheckpointStateProto.CheckpointState
 import org.platanios.tensorflow.api.tensors.Tensor
+import org.platanios.tensorflow.api.tensors.TensorFactory._
 import org.platanios.tensorflow.api.types.{DataType, INT32, STRING}
 import org.platanios.tensorflow.api.utilities.{FileIO, Proto}
-
 import com.google.protobuf.TextFormat
 import com.typesafe.scalalogging.Logger
 import org.slf4j.LoggerFactory
 import org.tensorflow.framework.MetaGraphDef
 import org.tensorflow.util.SaverDef
 import org.tensorflow.util.SaverDef.CheckpointFormatVersion
-
 import java.nio.file.{Files, Path}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -174,8 +173,8 @@ class Saver private (saverDef: SaverDef, saveRelativePaths: Boolean = false, pad
         val modelCheckpointPath = savePath.getFileSystem.getPath(
           // TODO: [SESSION] !!! Feed mappers for string inputs.
           session.run(
-            feeds = Map(filenameTensor -> Tensor.fromSeq(checkpointFile.toString)),
-            fetches = saveTensor).scalar.asInstanceOf[String])
+            feeds = Map(filenameTensor -> Tensor.fromSeq[STRING.type](checkpointFile.toString).toRawTensor),
+            fetches = saveTensor).asInstanceOf[Tensor[STRING.type]].scalar)
         if (writeCheckpointState) {
           maybeDeleteOldCheckpoints(modelCheckpointPath, metaGraphSuffix)
           Saver.updateCheckpointStateFile(
@@ -219,7 +218,7 @@ class Saver private (saverDef: SaverDef, saveRelativePaths: Boolean = false, pad
     val filenameTensor = session.graph.getOutputByName(saverDef.getFilenameTensorName)
     val restoreOp = session.graph.getOpByName(saverDef.getRestoreOpName)
     // TODO: [SESSION] !!! Feed mappers for string inputs.
-    session.run(feeds = Map(filenameTensor -> Tensor.fromSeq(savePath.toString)), targets = restoreOp)
+    session.run(feeds = Map(filenameTensor -> Tensor.fromSeq[STRING.type](savePath.toString).toRawTensor), targets = restoreOp)
   }
 
   /** Returns the sequence of the latest and not-yet-deleted checkpoint filenames, sorted from oldest to newest. You can
@@ -880,7 +879,7 @@ trait SaverDefBuilder {
   protected def addShardedSaveOps(prefix: Output, saveablesByDevice: Seq[(String, Set[Saveable])]): Output = {
     checkpointFormatVersion match {
       case SaverDef.CheckpointFormatVersion.V1 =>
-        val numberOfShards = Tensor.fromSeq(INT32, saveablesByDevice.length).toOutput
+        val numberOfShards = Tensor.fromSeq[INT32.type](saveablesByDevice.length).toOutput
         val shardedSaves = saveablesByDevice.zipWithIndex.map { case ((device, saveables), shard) =>
           Op.createWith(device = device) {
             addSaveOps(SaverDefBuilder.shardedFilenameOp(prefix, shard, numberOfShards), saveables)
@@ -892,7 +891,7 @@ trait SaverDefBuilder {
         }
       case SaverDef.CheckpointFormatVersion.V2 =>
         // Suffix for any well-formed 'prefix', when sharded.
-        val _SHARDED_SUFFIX = Tensor.fromSeq(s"_temp_${UUID.randomUUID().toString}/part").toOutput
+        val _SHARDED_SUFFIX = Tensor.fromSeq[STRING.type](s"_temp_${UUID.randomUUID().toString}/part").toOutput
         // Transformations:
         //   - Users pass in "save_path_" in the save and restore methods. E.g., "myckpt".
         //   - 'prefix' gets fed <save_path><_SHARDED_SUFFIX>.
@@ -909,7 +908,7 @@ trait SaverDefBuilder {
         //
         // On failure and  subsequent restore, an outdated and orphaned temporary directory can be safely removed.
         val temporaryCheckpointPrefix = Text.stringJoin(Seq(prefix, _SHARDED_SUFFIX))
-        val numberOfShards = Tensor.fromSeq(INT32, saveablesByDevice.length).toOutput
+        val numberOfShards = Tensor.fromSeq[INT32.type](saveablesByDevice.length).toOutput
         val (shardedPrefixes, shardedSaves) = saveablesByDevice.zipWithIndex.map { case ((device, saveables), shard) =>
           Op.createWith(device = device) {
             val prefix = SaverDefBuilder.shardedFilenameOp(temporaryCheckpointPrefix, shard, numberOfShards)
@@ -1031,7 +1030,7 @@ trait SaverDefBuilder {
     SaverDefBuilder.checkSaveables(saveables)
     val (filenameOutput, saveOutput, restoreOp) = Op.createWithNameScope(name, saveables.flatMap(_.producerOps)) {
       // Add the constant string tensor for the filename.
-      val filenameOutput = Tensor.fromSeq(filename).toOutput
+      val filenameOutput = Tensor.fromSeq[STRING.type](filename).toOutput
       // Add the save ops.
       if (sharded) {
         val saveablesByDevice = SaverDefBuilder.groupByDevice(saveables)
@@ -1109,7 +1108,7 @@ object SaverDefBuilder {
             s"'tensors' (${tensors.length}).")
     Op.Builder(opType = "Save", name = name)
         .addInput(filename)
-        .addInput(Tensor(Tensor.fromSeq(tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
+        .addInput(Tensor(Tensor.fromSeq[STRING.type](tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
         .addInputList(tensors)
         .build()
   }
@@ -1163,8 +1162,8 @@ object SaverDefBuilder {
             s"'slices' (${slices.length}).")
     Op.Builder(opType = "SaveSlices", name = name)
         .addInput(filename)
-        .addInput(Tensor(Tensor.fromSeq(tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
-        .addInput(Tensor(Tensor.fromSeq(slices: _*)).toOutput) // TODO: [TENSORS] Improve.
+        .addInput(Tensor(Tensor.fromSeq[STRING.type](tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
+        .addInput(Tensor(Tensor.fromSeq[STRING.type](slices: _*)).toOutput) // TODO: [TENSORS] Improve.
         .addInputList(tensors)
         .build()
   }
@@ -1193,7 +1192,7 @@ object SaverDefBuilder {
       filenamePattern: Output, tensorName: String, preferredShard: Int = -1, name: String = "Restore"): Output = {
     Op.Builder(opType = "Restore", name = name)
         .addInput(filenamePattern)
-        .addInput(Tensor.fromSeq(tensorName).toOutput)
+        .addInput(Tensor.fromSeq[STRING.type](tensorName).toOutput)
         .setAttribute("preferred_shard", preferredShard)
         .build().outputs(0)
   }
@@ -1218,8 +1217,8 @@ object SaverDefBuilder {
       name: String = "Restore"): Output = {
     Op.Builder(opType = "RestoreSlice", name = name)
         .addInput(filenamePattern)
-        .addInput(Tensor.fromSeq(tensorName).toOutput)
-        .addInput(Tensor.fromSeq(slice).toOutput)
+        .addInput(Tensor.fromSeq[STRING.type](tensorName).toOutput)
+        .addInput(Tensor.fromSeq[STRING.type](slice).toOutput)
         .setAttribute("preferred_shard", preferredShard)
         .build().outputs(0)
   }
@@ -1268,8 +1267,8 @@ object SaverDefBuilder {
             s"'slices' (${slices.length}).")
     Op.Builder(opType = "SaveV2", name = name)
         .addInput(prefix)
-        .addInput(Tensor(Tensor.fromSeq(tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
-        .addInput(Tensor(Tensor.fromSeq(slices: _*)).toOutput) // TODO: [TENSORS] Improve.
+        .addInput(Tensor(Tensor.fromSeq[STRING.type](tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
+        .addInput(Tensor(Tensor.fromSeq[STRING.type](slices: _*)).toOutput) // TODO: [TENSORS] Improve.
         .addInputList(tensors)
         .setAttribute("dtypes", tensors.map(_.dataType).toArray)
         .build()
@@ -1319,8 +1318,8 @@ object SaverDefBuilder {
             s"'dataTypes' (${dataTypes.length}).")
     Op.Builder(opType = "RestoreV2", name = name)
         .addInput(prefix)
-        .addInput(Tensor(Tensor.fromSeq(tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
-        .addInput(Tensor(Tensor.fromSeq(slices: _*)).toOutput) // TODO: [TENSORS] Improve.
+        .addInput(Tensor(Tensor.fromSeq[STRING.type](tensorNames: _*)).toOutput) // TODO: [TENSORS] Improve.
+        .addInput(Tensor(Tensor.fromSeq[STRING.type](slices: _*)).toOutput) // TODO: [TENSORS] Improve.
         .setAttribute("dtypes", dataTypes.toArray)
         .build().outputs.toSeq
   }

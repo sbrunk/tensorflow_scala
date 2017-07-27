@@ -261,12 +261,12 @@ final case class Graph(private[api] var nativeHandle: Long) extends Closeable wi
       if (actualVariables.isEmpty) {
         // Return an empty tensor so we only need to check for returned tensor size being equal to zero as an indication
         // of the model being ready.
-        Basic.constant(Tensor(STRING))
+        Basic.constant(Tensor[STRING.type]())
       } else {
         // Get a one-dimensional boolean tensor listing whether each variable is initialized.
         val variablesMask = Math.logicalNot(Basic.stack(variables.map(_.isInitialized).toSeq))
         // Get a one-dimensional string tensor containing all the variable names.
-        val variableNames = Basic.constant(Tensor(variables.map(v => Tensor(STRING, v.op.name)).toSeq: _*))
+        val variableNames = Basic.constant(Tensor[STRING.type](variables.map(v => Tensor(STRING, v.op.name)).toSeq: _*))()
         // Return a one-dimensional tensor containing the names of all uninitialized variables.
         Basic.booleanMask(variableNames, variablesMask)
       }

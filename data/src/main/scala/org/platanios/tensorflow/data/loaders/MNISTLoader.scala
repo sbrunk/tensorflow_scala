@@ -60,7 +60,7 @@ object MNISTLoader extends Loader {
     MNISTDataSet(trainImages, trainLabels, testImages, testLabels)
   }
 
-  private[this] def extractImages(path: Path, bufferSize: Int = 8192): tf.Tensor = {
+  private[this] def extractImages(path: Path, bufferSize: Int = 8192): tf.Tensor[tf.UINT8] = {
     logger.info(s"Extracting images from file '$path'.")
     val inputStream = new GZIPInputStream(Files.newInputStream(path))
     val outputStream = new ByteArrayOutputStream()
@@ -78,7 +78,7 @@ object MNISTLoader extends Loader {
     tf.Tensor.fromBuffer(tf.UINT8, tf.Shape(numberOfImages, numberOfRows, numberOfColumns), byteBuffer)
   }
 
-  private[this] def extractLabels(path: Path, bufferSize: Int = 8192): tf.Tensor = {
+  private[this] def extractLabels(path: Path, bufferSize: Int = 8192): tf.Tensor[tf.UINT8] = {
     logger.info(s"Extracting labels from file '$path'.")
     val inputStream = new GZIPInputStream(Files.newInputStream(path))
     val outputStream = new ByteArrayOutputStream()
@@ -95,4 +95,4 @@ object MNISTLoader extends Loader {
   }
 }
 
-case class MNISTDataSet(trainImages: tf.Tensor, trainLabels: tf.Tensor, testImages: tf.Tensor, testLabels: tf.Tensor)
+case class MNISTDataSet(trainImages: tf.Tensor[tf.UINT8], trainLabels: tf.Tensor[tf.UINT8], testImages: tf.Tensor[tf.UINT8], testLabels: tf.Tensor[tf.UINT8])

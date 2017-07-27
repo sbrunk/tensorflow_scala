@@ -17,8 +17,8 @@ package org.platanios.tensorflow.api.core
 
 import org.platanios.tensorflow.api.core.exception.InvalidShapeException
 import org.platanios.tensorflow.api.ops.{Basic, Output, OutputConvertible}
-import org.platanios.tensorflow.api.tensors.Tensor
-import org.platanios.tensorflow.api.types.{DataType, INT32, INT64}
+import org.platanios.tensorflow.api.tensors.{Tensor, TensorFactory}
+import org.platanios.tensorflow.api.types._
 
 /** Represents the shape of a tensor computed by an op.
   *
@@ -298,7 +298,8 @@ final class Shape private (private val array: Array[Int]) extends OutputConverti
     * @param  dataType Data type to use for the tensor.
     * @return One-dimensional tensor representing this shape.
     */
-  def toTensor(dataType: DataType = INT32): Tensor[INT32.type] = Tensor.fromSeq(dataType, asArray: _*)
+  def toTensor[T <: NumericDataType: TensorFactory](dataType: T = INT32)(implicit ev: SupportedType[T#ScalaType]): Tensor[T] =
+    Tensor.fromSeq[T](asArray.map(ev.cast(_, dataType)): _*)
 
   /** Converts this shape to a one-dimensional "symbolic" tensor (i.e., a constant-valued op output).
     *
@@ -311,8 +312,9 @@ final class Shape private (private val array: Array[Int]) extends OutputConverti
     * @param  dataType Data type to use for the tensor.
     * @return One-dimensional op output tensor representing this shape.
     */
-  def toOutput(dataType: DataType = INT32, name: String = "Shape"): Output = {
-    Basic.constant(toTensor(dataType), name = name)
+  def toOutput[T <: NumericDataType : TensorFactory](dataType: T = INT32, name: String = "Shape")(
+    implicit ev: SupportedType[T#ScalaType]): Output = {
+    Basic.constant(toTensor[T](dataType), name = name)
   }
 
   override def toString: String = if (array == null) "<unknown>" else s"[${array.mkString(", ").replace("-1", "?")}]"

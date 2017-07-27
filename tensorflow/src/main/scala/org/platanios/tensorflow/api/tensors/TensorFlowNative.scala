@@ -30,7 +30,7 @@ import java.nio.ByteOrder
   */
 private[api] object TensorFlowNative {
   private[api] class DataTypeOps(val dataType: DataType) {
-    private[api] def tensorFromTFNativeHandle(nativeHandle: Long): RawTensor[DataType] = {
+    private[api] def tensorFromTFNativeHandle(nativeHandle: Long): RawTensor = {
       val shape = Shape.fromSeq(NativeTensor.shape(nativeHandle).map(_.toInt))
       val buffer = NativeTensor.buffer(nativeHandle).order(ByteOrder.nativeOrder)
       val factory = dataType match {
@@ -45,7 +45,7 @@ private[api] object TensorFlowNative {
         case UINT16 => UINT16TensorFactory
         case _ => ??? // TODO complete
       }
-      val tensor: RawTensor[DataType] = factory.fromBuffer(shape, buffer, RowMajorOrder)
+      val tensor: RawTensor = factory.fromBuffer(shape, buffer, RowMajorOrder)
       // Keep track of references in the Scala side and notify the native library when the tensor is not referenced
       // anymore anywhere in the Scala side. This will let the native library free the allocated resources and prevent a
       // potential memory leak.
@@ -63,7 +63,7 @@ private[api] object TensorFlowNative {
     }
   }
 
-  private[api] class NativeViewOps(tensor: RawTensor[DataType]) {
+  private[api] class NativeViewOps(tensor: RawTensor) {
     private[api] def nativeView: NativeView = {
       if (tensor.order != RowMajorOrder)
         throw new IllegalArgumentException("Only row-major tensors can be used in the TensorFlow native library.")
@@ -74,7 +74,7 @@ private[api] object TensorFlowNative {
 
   private[api] trait Implicits {
     implicit def dataTypeOps(dataType: DataType): DataTypeOps = new DataTypeOps(dataType)
-    implicit def nativeViewOps(tensor: RawTensor[DataType]): NativeViewOps = new NativeViewOps(tensor)
+    implicit def nativeViewOps(tensor: RawTensor): NativeViewOps = new NativeViewOps(tensor)
   }
 
   private[api] object Implicits extends Implicits

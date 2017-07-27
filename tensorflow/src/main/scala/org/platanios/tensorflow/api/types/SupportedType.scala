@@ -26,7 +26,7 @@ import spire.std._
   */
 sealed trait SupportedType[@specialized T]
     extends Any {
-  type DefaultTFType
+  type DefaultTFType <: DataType
   @inline def dataType: DataType
 
   @throws[UnsupportedOperationException]

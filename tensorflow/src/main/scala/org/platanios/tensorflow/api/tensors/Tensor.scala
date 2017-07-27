@@ -26,6 +26,8 @@ import spire.math.UShort
 import java.nio._
 import java.nio.charset.Charset
 
+import org.platanios.tensorflow.api.tensors.TensorFactory.{BOOLEANTensorFactory, FLOAT32TensorFactory, FLOAT64TensorFactory, INT16TensorFactory, INT32TensorFactory, INT64TensorFactory, INT8TensorFactory, StringTensorFactory, UINT16TensorFactory}
+
 
 // TODO: Specialized slices (e.g., contiguous).
 // TODO: Is there a need to complicate the flattened index function for the plain tensor?
@@ -39,8 +41,8 @@ abstract class Tensor[T <: DataType] private[tensors] (
   val dataType: T,
   val shape: Shape,
   val buffer: ByteBuffer,
-  val order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)(private[api] implicit val factory: TensorFactory[T])
-  extends RawTensor[T] with OutputConvertible {
+  val order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)(private[tensors] implicit val factory: TensorFactory[T])
+  extends RawTensor with OutputConvertible {
 
   private[api] def flattenedIndex(indices: Array[Int]): Int = order.index(shape.asArray, indices)
   private[api] def flattenedIndexIterator: Iterator[Int] = order.indexIterator(shape.asArray)
@@ -54,15 +56,15 @@ abstract class Tensor[T <: DataType] private[tensors] (
     this
   }
 
-  private[tensors] def newTensor(shape: Shape): Tensor[T] =
+  private[tensors] def newTensor(shape: Shape)(implicit ev: T <:< FixedSizeDataType): Tensor[T] =
     factory.fromBuffer(shape, Tensor.allocate(dataType, shape, order), order)
 
   def reshape(shape: Shape, copyData: Boolean = true): Tensor[T] = {
     val newShape = this.shape.reshape(shape)
     if (copyData)
-      factory(newShape, Tensor.copyBuffer(dataType, newShape, buffer, copy = true, order), order)
+      factory.fromBuffer(newShape, Tensor.copyBuffer(dataType, newShape, buffer, copy = true, order), order)
     else
-      factory(newShape, buffer, order)
+      factory.fromBuffer(newShape, buffer, order)
   }
 
   def entriesIterator: Iterator[T#ScalaType] = flattenedIndexIterator.map(getElementAtFlattenedIndex)
@@ -110,7 +112,7 @@ abstract class Tensor[T <: DataType] private[tensors] (
   }
 
   // TODO: !!! Make this return the sub-class tensor type instead.
-  def apply(indexers: Indexer*): Tensor[T] = {
+  def apply(indexers: Indexer*)(implicit ev: T <:< FixedSizeDataType): Tensor[T] = {
     slice(indexers: _*)
     //    if (dataType.byteSize == -1)
     //      throw new IllegalStateException("Cannot index a tensor whose elements have unknown byte size.")
@@ -126,7 +128,7 @@ abstract class Tensor[T <: DataType] private[tensors] (
   }
 
   // TODO: Make more efficient for contiguous slices.
-  def slice(indexers: Indexer*): Tensor[T] = {
+  def slice(indexers: Indexer*)(implicit ev: T <:< FixedSizeDataType): Tensor[T] = {
     if (shape.rank == 0 && indexers.length == 1
         && indexers.head.isInstanceOf[Index] && indexers.head.asInstanceOf[Index].index == 0) {
       this
@@ -173,17 +175,23 @@ abstract class Tensor[T <: DataType] private[tensors] (
 
   override def toTensor: Tensor[T] = this
   override def toOutput: Output = Basic.constant(this)
+  def toRawTensor: RawTensor = this
 }
 
 object Tensor {
   // TODO: [TENSORS] Add constructor methods for numeric tensors and other specific types of tensors.
 
-  def fromSeq[T <: DataType: TensorFactory, U <: T#ScalaType](values: U*): Tensor[T] = {
+  def fromSeq[T <: DataType: TensorFactory](values: T#ScalaType*): Tensor[T] = {
     val shape = if (values.length > 1) Shape(values.length) else Shape()
-    implicitly[TensorFactory[T]].fromSeq(values :_*)
+    implicitly[TensorFactory[T]].fromSeq(values)
   }
 
-  def apply[T <: DataType](tensors: Tensor[T]*): Tensor[T] = {
+  //def fromSeq[T <: DataType: TensorFactory](values: T#ScalaType*): Tensor[T] = {
+  //  val shape = if (values.length > 1) Shape(values.length) else Shape()
+  //  implicitly[TensorFactory[T]].fromSeq(values :_*)
+  //}
+
+  def apply[T <: DataType: TensorFactory](tensors: Tensor[T]*): Tensor[T] = {
     if (tensors.isEmpty)
       throw new IllegalArgumentException("A data type needs to be provided to construct empty tensors.")
     apply(dataType = tensors.map(_.dataType).maxBy(_.priority), tensors: _*)
@@ -199,10 +207,65 @@ object Tensor {
     implicitly[TensorFactory[T]].fromTensors(newShape, tensors)
   }
 
-  def fill[T <: DataType : TensorFactory, U <: T#ScalaType](value: U, shape: Shape = Shape()): Tensor[T] = {
-    // TODO: Add downcasting warnings.
+  def cast[T <: DataType : TensorFactory](tensor: RawTensor): Tensor[T] = {
+    val dataType = implicitly[TensorFactory[T]].dataType
+    def copyHelper[I <: DataType](tensor: Tensor[I]): Tensor[T] = {
+      val b = Tensor.allocate(dataType, tensor.shape)
+      val t = Tensor.fromBuffer(dataType, tensor.shape, b)
+      for ((thisIndex, tensorIndex) <- t.flattenedIndexIterator zip tensor.flattenedIndexIterator)
+        t.setElementAtFlattenedIndex(
+          thisIndex, dataType.cast(tensor.getElementAtFlattenedIndex(tensorIndex))(tensor.dataType.supportedType.asInstanceOf[SupportedType[I#ScalaType]]))
+      t
+    }
+
+    val x: Tensor[T] = tensor match {
+      case t: STRINGTensor =>  copyHelper(t)
+      case t: BOOLEANTensor => copyHelper(t)
+      case t: FLOAT32Tensor => copyHelper(t)
+      case t: FLOAT64Tensor => copyHelper(t)
+      case t: INT8Tensor =>    copyHelper(t)
+      case t: INT16Tensor =>   copyHelper(t)
+      case t: INT32Tensor =>   copyHelper(t)
+      case t: INT64Tensor =>   copyHelper(t)
+      case _ => throw new NotImplementedError()
+      // TODO remaining datatypes
+    }
+    x
+  }
+
+  def cast(dataType: DataType, tensor: RawTensor): RawTensor = {
+    dataType match {
+      case STRING => cast[STRING.type](tensor)
+      case BOOLEAN => cast[BOOLEAN.type](tensor)
+      case FLOAT32 => cast[FLOAT32.type](tensor)
+      case FLOAT64 => cast[FLOAT64.type](tensor)
+      case INT8 => cast[INT8.type](tensor)
+      case INT16 => cast[INT16.type](tensor)
+      case INT32 => cast[INT32.type](tensor)
+      case INT64 => cast[INT64.type](tensor)
+      case UINT16 => cast[UINT16.type](tensor)
+      // TODO complete types
+    }
+  }
+
+  def fill[T <: DataType : TensorFactory](value: T#ScalaType, shape: Shape = Shape()): Tensor[T] = {
     shape.assertFullyDefined()
     implicitly[TensorFactory[T]].fill(shape, value)
+  }
+
+  def fill[T : SupportedType](dataType: DataType)(value: T, shape: Shape): RawTensor = {
+    shape.assertFullyDefined()
+    dataType match {
+      case STRING => fill(STRING.cast(value), shape)
+      case BOOLEAN => fill(BOOLEAN.cast(value), shape)
+      case INT8 => fill(INT8.cast(value), shape)
+      case INT16 => fill(INT16.cast(value), shape)
+      case INT32 => fill(INT32.cast(value), shape)
+      case INT64 => fill(INT64.cast(value), shape)
+      case FLOAT32 => fill(FLOAT32.cast(value), shape)
+      case FLOAT64 => fill(FLOAT64.cast(value), shape)
+      // TODO remaining datatypes
+    }
   }
 
   // TODO: [TENSOR] Add checks for direct/non-direct byte buffers.
@@ -234,7 +297,8 @@ object Tensor {
     }
   }
 
-  private[api] def allocate[T <: FixedSizeDataType](
+  // (implicit ev: T <:< FixedSizeDataType)
+  private[api] def allocate[T <: DataType](
     dataType: T, shape: Shape,
     order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER): ByteBuffer = {
     shape.assertFullyDefined()
@@ -243,30 +307,45 @@ object Tensor {
     //new Tensor[T](dataType = dataType, shape = shape, buffer = buffer, order = order)
   }
 
-  private[api] def fromTFNativeHandle(nativeHandle: Long): Tensor[DataType] = {
+  private[api] def fromTFNativeHandle(nativeHandle: Long): RawTensor = {
     DataType.fromCValue(NativeTensor.dataType(nativeHandle)).tensorFromTFNativeHandle(nativeHandle)
   }
 
-  private[api] trait Implicits {
-    implicit def scalaValueToTensor(value: Boolean): Tensor[BOOLEAN.type] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: String): Tensor[STRING.type] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: Float): Tensor[FLOAT32.type] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: Double): Tensor[FLOAT64.type ] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: Byte): Tensor[INT8.type] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: Short): Tensor[INT16.type ] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: Int): Tensor[INT32.type] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: Long): Tensor[INT64.type] = Tensor.fill(value)
-    implicit def scalaValueToTensor(value: UShort): Tensor[UINT16.type] = Tensor.fill(value)
+  private[api] def factory(dataType: DataType): TensorFactory[_ <: DataType] = {
+    dataType match {
+      case STRING => StringTensorFactory
+      case BOOLEAN => BOOLEANTensorFactory
+      case FLOAT32 => FLOAT32TensorFactory
+      case FLOAT64 => FLOAT64TensorFactory
+      case INT8 => INT8TensorFactory
+      case INT16 => INT16TensorFactory
+      case INT32 => INT32TensorFactory
+      case INT64 => INT64TensorFactory
+      case UINT16 => UINT16TensorFactory
+      // TODO complete types
+    }
+  }
 
-    implicit def scalaArrayToTensor(value: Array[Boolean]): Tensor[BOOLEAN.type] = Tensor.fromSeq(value: _*)
+  private[api] trait Implicits {
+    implicit def scalaValueToTensor(value: Boolean): Tensor[BOOLEAN.type] = Tensor.fill[BOOLEAN.type](value)
+    implicit def scalaValueToTensor(value: String): Tensor[STRING.type] = Tensor.fill[STRING.type](value)
+    implicit def scalaValueToTensor(value: Float): Tensor[FLOAT32.type] = Tensor.fill[FLOAT32.type](value)
+    implicit def scalaValueToTensor(value: Double): Tensor[FLOAT64.type] = Tensor.fill[FLOAT64.type](value)
+    implicit def scalaValueToTensor(value: Byte): Tensor[INT8.type] = Tensor.fill[INT8.type](value)
+    implicit def scalaValueToTensor(value: Short): Tensor[INT16.type] = Tensor.fill[INT16.type](value)
+    implicit def scalaValueToTensor(value: Int): Tensor[INT32.type] = Tensor.fill[INT32.type](value)
+    implicit def scalaValueToTensor(value: Long): Tensor[INT64.type] = Tensor.fill[INT64.type](value)
+    implicit def scalaValueToTensor(value: UShort): Tensor[UINT16.type] = Tensor.fill[UINT16.type](value)
+
+    implicit def scalaArrayToTensor(value: Array[Boolean]): Tensor[BOOLEAN.type] = Tensor.fromSeq[BOOLEAN.type](value: _*)
     // implicit def scalaArrayToTensor(value: Array[String]): Tensor = Tensor.fromSeq(value: _*)(String.supportedType)
-    implicit def scalaArrayToTensor(value: Array[Float]): Tensor[FLOAT32.type] = Tensor.fromSeq(value: _*)
-    implicit def scalaArrayToTensor(value: Array[Double]): Tensor[FLOAT64.type] = Tensor.fromSeq(value: _*)
-    implicit def scalaArrayToTensor(value: Array[Byte]): Tensor[INT8.type] = Tensor.fromSeq(value: _*)
-    implicit def scalaArrayToTensor(value: Array[Short]): Tensor[INT16.type] = Tensor.fromSeq(value: _*)
-    implicit def scalaArrayToTensor(value: Array[Int]): Tensor[INT32.type] = Tensor.fromSeq(value: _*)
-    implicit def scalaArrayToTensor(value: Array[Long]): Tensor[INT64.type] = Tensor.fromSeq(value: _*)
-    implicit def scalaArrayToTensor(value: Array[UShort]): Tensor[UINT16.type] = Tensor.fromSeq(value: _*)
+    implicit def scalaArrayToTensor(value: Array[Float]): Tensor[FLOAT32.type] = Tensor.fromSeq[FLOAT32.type](value: _*)
+    implicit def scalaArrayToTensor(value: Array[Double]): Tensor[FLOAT64.type] = Tensor.fromSeq[FLOAT64.type](value: _*)
+    implicit def scalaArrayToTensor(value: Array[Byte]): Tensor[INT8.type] = Tensor.fromSeq[INT8.type](value: _*)
+    implicit def scalaArrayToTensor(value: Array[Short]): Tensor[INT16.type] = Tensor.fromSeq[INT16.type](value: _*)
+    implicit def scalaArrayToTensor(value: Array[Int]): Tensor[INT32.type] = Tensor.fromSeq[INT32.type](value: _*)
+    implicit def scalaArrayToTensor(value: Array[Long]): Tensor[INT64.type] = Tensor.fromSeq[INT64.type](value: _*)
+    implicit def scalaArrayToTensor(value: Array[UShort]): Tensor[UINT16.type] = Tensor.fromSeq[UINT16.type](value: _*)
 
     //implicit def tensorToNumeric(tensor: Tensor): NumericTensor = tensor.asNumeric
     //implicit def tensorToRealNumeric(tensor: Tensor): RealNumericTensor = tensor.asRealNumeric

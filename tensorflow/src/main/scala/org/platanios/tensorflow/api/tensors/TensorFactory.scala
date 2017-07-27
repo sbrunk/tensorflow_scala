@@ -24,8 +24,8 @@ trait TensorFactory[T <: DataType] {
 
   def fromTensors(newShape: Shape, tensors: Seq[Tensor[T]], order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER): Tensor[T]
 
-  def fromSeq(values: T#ScalaType*): Tensor[T]
-  }
+  def fromSeq(values: Seq[T#ScalaType]): Tensor[T]
+}
 
 trait FixedSizeTensorFactory[T <: FixedSizeDataType] extends TensorFactory[T] {
 
@@ -40,7 +40,7 @@ trait FixedSizeTensorFactory[T <: FixedSizeDataType] extends TensorFactory[T] {
     newTensor
   }
 
-  def fromSeq(values: T#ScalaType*): Tensor[T] = {
+  def fromSeq(values: Seq[T#ScalaType]): Tensor[T] = {
     val shape = if (values.length > 1) Shape(values.length) else Shape()
     val buffer = Tensor.allocate[T](dataType, shape, DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)
     val tensor = this.fromBuffer(shape, buffer, DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)
@@ -49,7 +49,10 @@ trait FixedSizeTensorFactory[T <: FixedSizeDataType] extends TensorFactory[T] {
     tensor
   }
 
-  override def fill(shape: Shape, value: T#ScalaType): Tensor[T] = ???
+  override def fill(shape: Shape, value: T#ScalaType): Tensor[T] = {
+    val buffer = Tensor.allocate[T](dataType, shape, DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)
+    this.fromBuffer(shape, buffer, DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER).fill(value)
+  }
 }
 
 object TensorFactory {
@@ -78,7 +81,7 @@ object TensorFactory {
       new STRINGTensor(shape, buffer, DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)
     }
 
-    override def fromSeq(values: String*): Unit = {
+    override def fromSeq(values: Seq[String]): Tensor[STRING.type] = {
       // TODO: !!! Make more efficient.
       val shape = if (values.length > 1) Shape(values.length) else Shape()
       var size = INT64.byteSize * values.length
@@ -174,6 +177,12 @@ object TensorFactory {
     override def dataType: INT64.type = INT64
     override def fromBuffer(shape: Shape, buffer: ByteBuffer, order: Order): Tensor[INT64.type] =
       new INT64Tensor(shape, buffer, order)
+  }
+
+  implicit object UINT8TensorFactory extends FixedSizeTensorFactory[UINT8.type] {
+    override def dataType: UINT8.type = UINT8
+    override def fromBuffer(shape: Shape, buffer: ByteBuffer, order: Order): Tensor[UINT8.type] =
+      new UINT8Tensor(shape, buffer, order)
   }
 
   implicit object UINT16TensorFactory extends FixedSizeTensorFactory[UINT16.type] {

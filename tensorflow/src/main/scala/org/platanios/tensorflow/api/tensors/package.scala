@@ -15,14 +15,18 @@
 
 package org.platanios.tensorflow.api
 
+import org.platanios.tensorflow.api.types.DataType
+
 /**
   * @author Emmanouil Antonios Platanios
   */
 package object tensors {
   private[api] trait API {
-    type Tensor[T] = tensors.Tensor[T]
+    type Tensor[T <: DataType] = tensors.Tensor[T]
+    type TensorFactory[T <: DataType] = tensors.TensorFactory[T]
 
     val Tensor = tensors.Tensor
+    val TensorFactory = tensors.TensorFactory
 
     type Order = tensors.Order
     val RowMajorOrder = tensors.RowMajorOrder

@@ -19,7 +19,7 @@ import org.platanios.tensorflow.api.core.Shape
 import org.platanios.tensorflow.api.core.exception.ShapeMismatchException
 import org.platanios.tensorflow.api.ops.{Basic, Output}
 import org.platanios.tensorflow.api.ops.variables.Variable.PartitionInformation
-import org.platanios.tensorflow.api.tensors.Tensor
+import org.platanios.tensorflow.api.tensors.{RawTensor, Tensor}
 import org.platanios.tensorflow.api.types.DataType
 
 // TODO: [VARIABLE_INITIALIZERS] RandomUniform/Normal, TruncatedNormal, UniformUnitScaling, Orthogonal.
@@ -79,7 +79,7 @@ private[api] object OnesInitializer extends Initializer {
 }
 
 /** Initializer that sets the value of the variable to the provided `value`. */
-private[api] case class ConstantInitializer(value: Tensor) extends Initializer {
+private[api] case class ConstantInitializer(value: RawTensor) extends Initializer {
   @throws[ShapeMismatchException]
   override def initialValue(shape: Shape, dataType: DataType, partitionInfo: PartitionInformation): Output = {
     Basic.constant(value, dataType, shape, name = "ConstantInitializer")

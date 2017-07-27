@@ -2,10 +2,10 @@ package org.platanios.tensorflow.api.tensors
 
 import java.nio.ByteBuffer
 
-import org.platanios.tensorflow.api.types.DataType
+import org.platanios.tensorflow.api.types.{DataType, SupportedType}
 
-abstract class RawTensor[+T <: DataType] extends TensorLike {
-  override val dataType: T
+abstract class RawTensor extends TensorLike {
+  override val dataType: DataType
   def buffer: ByteBuffer
   val order: Order
 }

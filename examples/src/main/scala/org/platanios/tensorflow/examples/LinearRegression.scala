@@ -46,18 +46,18 @@ object LinearRegression {
     session.run(targets = tf.globalVariablesInitializer())
     for (i <- 0 to 50) {
       val trainBatch = batch(10000)
-      val feeds = Map(inputs -> trainBatch._1, outputs -> trainBatch._2)
-      val trainLoss = session.run(feeds = feeds, fetches = loss, targets = trainOp)
+      val feeds = Map(inputs -> trainBatch._1.toRawTensor, outputs -> trainBatch._2.toRawTensor)
+      val trainLoss = session.run(feeds = feeds, fetches = loss, targets = trainOp).asInstanceOf[tf.Tensor[tf.FLOAT32]]
       if (i % 1 == 0)
         logger.info(s"Train loss at iteration $i = ${trainLoss.scalar} " +
-                        s"(weight = ${session.run(fetches = weights.value).scalar})")
+                        s"(weight = ${session.run(fetches = weights.value).asInstanceOf[tf.Tensor[tf.FLOAT32]].scalar})")
     }
 
-    logger.info(s"Trained weight value: ${session.run(fetches = weights.value).scalar}")
+    logger.info(s"Trained weight value: ${session.run(fetches = weights.value).asInstanceOf[tf.Tensor[tf.FLOAT32]].scalar}")
     logger.info(s"True weight value: $weight")
   }
 
-  def batch(batchSize: Int): (tf.Tensor, tf.Tensor) = {
+  def batch(batchSize: Int): (tf.Tensor[tf.FLOAT32], tf.Tensor[tf.FLOAT32]) = {
     val inputs = ArrayBuffer.empty[Float]
     val outputs = ArrayBuffer.empty[Float]
     var i = 0

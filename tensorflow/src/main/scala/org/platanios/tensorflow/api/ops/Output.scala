@@ -20,10 +20,9 @@ import org.platanios.tensorflow.api.core.{Graph, Indexer, Shape}
 import org.platanios.tensorflow.api.core.client.Session
 import org.platanios.tensorflow.api.core.exception.InvalidDataTypeException
 import org.platanios.tensorflow.api.ops.Op.{createWith, getGraphFromInputs}
-import org.platanios.tensorflow.api.tensors.Tensor
-import org.platanios.tensorflow.api.types.{DataType, INT32, INT64}
+import org.platanios.tensorflow.api.tensors._
+import org.platanios.tensorflow.api.types._
 import org.platanios.tensorflow.jni.{Op => NativeOp}
-
 import spire.implicits._
 import spire.math.UShort
 
@@ -192,7 +191,7 @@ final case class Output private(op: Op, index: Int) extends OutputLike {
     * @param  session Optional session to use for the evaluation.
     * @return Value of this op output, for this evaluation.
     */
-  def evaluate(feeds: Map[Output, Tensor] = Map.empty, session: Session = null): Tensor = {
+  def evaluate(feeds: Map[Output, RawTensor] = Map.empty, session: Session = null): RawTensor = {
     val effectiveSession = if (session == null) graph.defaultSession else session
     effectiveSession.run(feeds, this)
   }
@@ -282,7 +281,7 @@ final case class Output private(op: Op, index: Int) extends OutputLike {
 object Output {
   // TODO: !!!
 
-  private[api] def constantValue(tensor: Output): Tensor = {
+  private[api] def constantValue(tensor: Output): RawTensor = {
     val value = tensor.op.opType match {
       case "Const" => ??? // TODO: !!! Needs MakeNdArray()
       case "Shape" =>
@@ -358,8 +357,19 @@ object Output {
       case "Fill" =>
         val fillShape = tensor.shape
         val fillValue = constantValue(tensor.op.inputs(0))
-        if (fillShape.isFullyDefined && fillValue != null)
-          Tensor.fill(fillValue.dataType, fillShape)(fillValue.scalar)(fillValue.dataType.supportedType)
+        if (fillShape.isFullyDefined && fillValue != null) {
+          fillValue match {
+            case t: STRINGTensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            case t: BOOLEANTensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            case t: FLOAT32Tensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            case t: FLOAT64Tensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            case t: INT8Tensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            case t: INT16Tensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            case t: INT32Tensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            case t: INT64Tensor => Tensor.fill(fillValue.dataType)(t.scalar, fillShape)
+            // TODO remaining datatypes
+          }
+        }
         else
           null
       case _ => null
@@ -382,51 +392,52 @@ object Output {
     */
   private[api] def constantValueAsShape(tensor: Output): Shape = {
     // TODO: !!! Do we really need this function?
-    val shape = tensor.shape.withRank(1)
-    if (shape == Shape(0)) {
-      Shape.scalar()
-    } else {
-      tensor.op.opType match {
-        case "Shape" => tensor.op.inputs(0).shape
-        case "Pack" =>
-          var returnShape = Shape.scalar()
-          tensor.op.inputs.foreach(input => {
-            // 'input' must be a scalar. Attempt to evaluate it, and append it to 'returnShape'.
-            returnShape = returnShape.concatenateWith(Shape(constantValue(input).scalar.asInstanceOf[Int]))
-          })
-          returnShape
-        case "Concat" =>
-          // We assume that 'tensor.op.inputs(0)' evaluates to 0, as this is the only legal value when concatenating
-          // vectors, and it will have been checked by a previous shape function.
-          var returnShape = Shape.scalar()
-          tensor.op.inputs.tail.foreach(input => {
-            // 'input' must be a vector. Attempt to evaluate it as a shape, and concatenate it with 'returnShape'.
-            returnShape = returnShape.concatenateWith(constantValueAsShape(input))
-          })
-          returnShape
-        case "ConcatV2" =>
-          // We assume that 'tensor.op.inputs(-1)' evaluates to 0, as this is the only legal value when concatenating
-          // vectors, and it will have been checked by a previous shape function.
-          var returnShape = Shape.scalar()
-          tensor.op.inputs.dropRight(1).foreach(input => {
-            // 'input' must be a vector. Attempt to evaluate it as a shape, and concatenate it with 'returnShape'.
-            returnShape = returnShape.concatenateWith(constantValueAsShape(input))
-          })
-          returnShape
-        case _ =>
-          var returnShape = Shape.unknown(shape(0))
-          val value = constantValue(tensor).asNumeric
-          if (value != null) {
-            require(value.rank == 1, "Only rank-1 tensors can be converted to shapes.")
-            // TODO: !!! Does this work?
-            import value.dataType.supportedType
-            val shape = Shape(
-              (0 until value.numElements).map(value.getElementAtFlattenedIndex(_).toInt): _*)
-            returnShape = returnShape.mergeWith(shape)
-          }
-          returnShape
-      }
-    }
+    ???
+//    val shape = tensor.shape.withRank(1)
+//    if (shape == Shape(0)) {
+//      Shape.scalar()
+//    } else {
+//      tensor.op.opType match {
+//        case "Shape" => tensor.op.inputs(0).shape
+//        case "Pack" =>
+//          var returnShape = Shape.scalar()
+//          tensor.op.inputs.foreach(input => {
+//            // 'input' must be a scalar. Attempt to evaluate it, and append it to 'returnShape'.
+//            returnShape = returnShape.concatenateWith(Shape(constantValue(input).scalar.asInstanceOf[Int]))
+//          })
+//          returnShape
+//        case "Concat" =>
+//          // We assume that 'tensor.op.inputs(0)' evaluates to 0, as this is the only legal value when concatenating
+//          // vectors, and it will have been checked by a previous shape function.
+//          var returnShape = Shape.scalar()
+//          tensor.op.inputs.tail.foreach(input => {
+//            // 'input' must be a vector. Attempt to evaluate it as a shape, and concatenate it with 'returnShape'.
+//            returnShape = returnShape.concatenateWith(constantValueAsShape(input))
+//          })
+//          returnShape
+//        case "ConcatV2" =>
+//          // We assume that 'tensor.op.inputs(-1)' evaluates to 0, as this is the only legal value when concatenating
+//          // vectors, and it will have been checked by a previous shape function.
+//          var returnShape = Shape.scalar()
+//          tensor.op.inputs.dropRight(1).foreach(input => {
+//            // 'input' must be a vector. Attempt to evaluate it as a shape, and concatenate it with 'returnShape'.
+//            returnShape = returnShape.concatenateWith(constantValueAsShape(input))
+//          })
+//          returnShape
+//        case _ =>
+//          var returnShape = Shape.unknown(shape(0))
+//          val value = constantValue(tensor)
+//          if (value != null) {
+//            require(value.rank == 1, "Only rank-1 tensors can be converted to shapes.")
+//            // TODO: !!! Does this work?
+//            import value.dataType.supportedType
+//            val shape = Shape(
+//              (0 until value.numElements).map(v => INT32.cast(value.getElementAtFlattenedIndex(v))): _*)
+//            returnShape = returnShape.mergeWith(shape)
+//          }
+//          returnShape
+//      }
+//    }
   }
 
   /** Convenient implicit conversion function used to convert op outputs to their corresponding ops for use with the
@@ -438,25 +449,25 @@ object Output {
   implicit def outputToOpImplicitConversion(output: Output): Op = output.op
 
   private[api] trait Implicits {
-    implicit def scalaValueToOutput(value: Boolean): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: String): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: Float): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: Double): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: Byte): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: Short): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: Int): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: Long): Output = Basic.constant(scalaValueToTensor(value))
-    implicit def scalaValueToOutput(value: UShort): Output = Basic.constant(scalaValueToTensor(value))
+    implicit def scalaValueToOutput(value: Boolean): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: String): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: Float): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: Double): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: Byte): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: Short): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: Int): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: Long): Output = Basic.constant(scalaValueToTensor(value))()
+    implicit def scalaValueToOutput(value: UShort): Output = Basic.constant(scalaValueToTensor(value))()
 
-    implicit def scalaArrayToOutput(value: Array[Boolean]): Output = Basic.constant(scalaArrayToTensor(value))
-    // implicit def scalaArrayToOutput(value: Array[String]): Output = Basic.constant(scalaArrayToTensor(value))
-    implicit def scalaArrayToOutput(value: Array[Float]): Output = Basic.constant(scalaArrayToTensor(value))
-    implicit def scalaArrayToOutput(value: Array[Double]): Output = Basic.constant(scalaArrayToTensor(value))
-    implicit def scalaArrayToOutput(value: Array[Byte]): Output = Basic.constant(scalaArrayToTensor(value))
-    implicit def scalaArrayToOutput(value: Array[Short]): Output = Basic.constant(scalaArrayToTensor(value))
-    implicit def scalaArrayToOutput(value: Array[Int]): Output = Basic.constant(scalaArrayToTensor(value))
-    implicit def scalaArrayToOutput(value: Array[Long]): Output = Basic.constant(scalaArrayToTensor(value))
-    implicit def scalaArrayToOutput(value: Array[UShort]): Output = Basic.constant(scalaArrayToTensor(value))
+    implicit def scalaArrayToOutput(value: Array[Boolean]): Output = Basic.constant(scalaArrayToTensor(value))()
+    // implicit def scalaArrayToOutput(value: Array[String]): Output = Basic.constant(scalaArrayToTensor(value))()
+    implicit def scalaArrayToOutput(value: Array[Float]): Output = Basic.constant(scalaArrayToTensor(value))()
+    implicit def scalaArrayToOutput(value: Array[Double]): Output = Basic.constant(scalaArrayToTensor(value))()
+    implicit def scalaArrayToOutput(value: Array[Byte]): Output = Basic.constant(scalaArrayToTensor(value))()
+    implicit def scalaArrayToOutput(value: Array[Short]): Output = Basic.constant(scalaArrayToTensor(value))()
+    implicit def scalaArrayToOutput(value: Array[Int]): Output = Basic.constant(scalaArrayToTensor(value))()
+    implicit def scalaArrayToOutput(value: Array[Long]): Output = Basic.constant(scalaArrayToTensor(value))()
+    implicit def scalaArrayToOutput(value: Array[UShort]): Output = Basic.constant(scalaArrayToTensor(value))()
 
     implicit def outputConvertibleToOutput(value: OutputConvertible): Output = value.toOutput
   }
@@ -637,7 +648,7 @@ final case class SparseOutput private(indices: Output, values: Output, denseShap
     * @return Value of this sparse op output, for this evaluation, represented as tuple containing the indices, the
     *         values, and the dense shape.
     */
-  def value(feeds: Map[Output, Tensor] = Map.empty, session: Session = null): (Tensor, Tensor, Tensor) = {
+  def value(feeds: Map[Output, RawTensor] = Map.empty, session: Session = null): (RawTensor, RawTensor, RawTensor) = {
     val effectiveSession = if (session == null) graph.defaultSession else session
     effectiveSession.run(feeds, this)
   }
@@ -663,7 +674,7 @@ object SparseOutput {
     *                           dense shape.
     * @return Sparse op output.
     */
-  private[api] def convertToSparseOutput(sparseOutputValue: (Tensor, Tensor, Tensor)): SparseOutput = {
+  private[api] def convertToSparseOutput(sparseOutputValue: (Tensor[_], Tensor[_], Tensor[_])): SparseOutput = {
     SparseOutput(
       Basic.constant(sparseOutputValue._1),
       Basic.constant(sparseOutputValue._2),

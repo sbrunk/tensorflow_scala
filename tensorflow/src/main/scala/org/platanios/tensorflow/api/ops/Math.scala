@@ -953,7 +953,7 @@ trait Math {
     if (axes != null)
       axes
     else
-      Basic.constant(Tensor.fromSeq(0 until tensor.shape.rank: _*)(INT32.supportedType))
+      Basic.constant(Tensor.fromSeq[INT32.type](0 until tensor.shape.rank: _*))
   }
 
   /** Creates an op that computes the sum of elements across dimensions of a tensor.

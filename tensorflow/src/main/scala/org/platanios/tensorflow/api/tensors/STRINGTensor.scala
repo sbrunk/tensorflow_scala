@@ -25,12 +25,11 @@ import org.platanios.tensorflow.api.types._
 /**
   * @author Emmanouil Antonios Platanios
   */
-class STRINGTensor private[tensors] (
+private[api] class STRINGTensor private[tensors] (
   override val shape: Shape,
   override val buffer: ByteBuffer,
   override val order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)
   extends Tensor[STRING.type](STRING, shape, buffer) {
-  override val dataType: DataType = STRING
 
   override private[api] def setElementAtFlattenedIndex(index: Int, value: String): this.type = ???
 

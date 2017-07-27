@@ -20,22 +20,23 @@ import java.nio.ByteBuffer
 import org.platanios.tensorflow.api.DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER
 import org.platanios.tensorflow.api.core.Shape
 import org.platanios.tensorflow.api.types._
+import spire.math.UByte
 
 /**
   * @author Sören Brunk
   */
-private[api] class INT8Tensor (
+private[api] class UINT8Tensor (
   override val shape: Shape,
   override val buffer: ByteBuffer,
   override val order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)
-  extends Tensor[INT8.type](INT8, shape, buffer, order) {
+  extends Tensor[UINT8.type](UINT8, shape, buffer, order) {
 
-  override private[api] def setElementAtFlattenedIndex(index: Int, value: Byte): this.type = {
+  override private[api] def setElementAtFlattenedIndex(index: Int, value: UByte): this.type = {
     dataType.putElementInBuffer(buffer, index * dataType.byteSize, value)
     this
   }
 
-  override private[api] def getElementAtFlattenedIndex(index: Int): Byte = {
+  override private[api] def getElementAtFlattenedIndex(index: Int): UByte = {
     dataType.getElementFromBuffer(buffer, index * dataType.byteSize)
   }
 }

@@ -24,7 +24,7 @@ import org.platanios.tensorflow.api.types._
 /**
   * @author Sören Brunk
   */
-private[tensors] class INT64Tensor (
+private[api] class INT64Tensor (
   override val shape: Shape,
   override val buffer: ByteBuffer,
   override val order: Order = DEFAULT_TENSOR_MEMORY_STRUCTURE_ORDER)

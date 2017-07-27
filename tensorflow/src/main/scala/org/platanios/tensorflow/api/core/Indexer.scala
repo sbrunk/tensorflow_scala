@@ -239,9 +239,9 @@ object Indexer {
   private[api] def toStridedSlice(indexers: Indexer*): Output => Output = {
     if (indexers.count(_ == Ellipsis) > 1)
       throw InvalidIndexerException("Only one 'Ellipsis' ('---') is allowed per indexing sequence.")
-    val begin = Tensor.fill(dataType = INT32, shape = Shape(indexers.length))(value = 0)
-    val end = Tensor.fill(dataType = INT32, shape = Shape(indexers.length))(value = 0)
-    val strides = Tensor.fill(dataType = INT32, shape = Shape(indexers.length))(value = 0)
+    val begin = Tensor.fill[INT32.type](0, shape = Shape(indexers.length))
+    val end = Tensor.fill[INT32.type](0, shape = Shape(indexers.length))
+    val strides = Tensor.fill[INT32.type](0, shape = Shape(indexers.length))
     var beginMask: Int = 0 // TODO: Use this.
     var endMask: Int = 0
     var ellipsisMask: Int = 0

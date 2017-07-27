@@ -21,9 +21,8 @@ import org.platanios.tensorflow.api.core.{Graph, Shape}
 import org.platanios.tensorflow.api.core.exception.{InvalidDataTypeException, ShapeMismatchException}
 import org.platanios.tensorflow.api.ops._
 import org.platanios.tensorflow.api.ops.Gradients.{Registry => GradientsRegistry}
-import org.platanios.tensorflow.api.tensors.Tensor
+import org.platanios.tensorflow.api.tensors.{RawTensor, Tensor}
 import org.platanios.tensorflow.api.types.{DataType, FLOAT32, INT32, INT64}
-
 import org.tensorflow.framework.{SaveSliceInfoDef, VariableDef}
 
 import scala.language.postfixOps
@@ -143,7 +142,7 @@ case class Variable private (
     * @param  session Optional session to use for the evaluation.
     * @return Value of this variable, for this evaluation.
     */
-  def evaluate(feeds: Map[Output, Tensor] = Map.empty, session: Session = null): Tensor = {
+  def evaluate(feeds: Map[Output, RawTensor] = Map.empty, session: Session = null): RawTensor = {
     toOutput.evaluate(feeds, session)
   }
 

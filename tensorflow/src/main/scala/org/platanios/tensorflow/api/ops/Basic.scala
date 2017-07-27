@@ -20,8 +20,8 @@ import org.platanios.tensorflow.api.Implicits._
 import org.platanios.tensorflow.api.core.Shape
 import org.platanios.tensorflow.api.core.exception.{InvalidDataTypeException, InvalidShapeException}
 import org.platanios.tensorflow.api.ops.Gradients.{Registry => GradientsRegistry}
-import org.platanios.tensorflow.api.tensors.{RowMajorOrder, Tensor}
-import org.platanios.tensorflow.api.types._
+import org.platanios.tensorflow.api.tensors._
+import org.platanios.tensorflow.api.types.{DataType, _}
 
 import scala.language.postfixOps
 
@@ -54,23 +54,29 @@ trait Basic {
     *                               the provided `shape`.
     */
   @throws[InvalidShapeException]
-  def constant(tensor: Tensor[_], dataType: DataType = null, shape: Shape = null, name: String = "Constant"): Output = {
+  def constant(tensor: RawTensor, dataType: DataType = null, shape: Shape = null, name: String = "Constant"): Output = {
     val inferredDataType = if (dataType == null) tensor.dataType else dataType
     val inferredShape = if (shape == null) tensor.shape else shape
     val constantTensor = {
       if (inferredDataType != tensor.dataType || inferredShape != tensor.shape) {
         // TODO: !!! Add support for reshaping tensor.
         if (tensor.numElements == 1) {
-          Tensor.fill(inferredDataType, inferredShape)(tensor.scalar)(tensor.dataType.supportedType)
+          tensor match {
+            case t: STRINGTensor =>  Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            case t: BOOLEANTensor => Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            case t: FLOAT32Tensor => Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            case t: FLOAT64Tensor => Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            case t: INT8Tensor =>    Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            case t: INT16Tensor =>   Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            case t: INT32Tensor =>   Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            case t: INT64Tensor =>   Tensor.fill(inferredDataType)(t.scalar, inferredShape)(t.dataType.supportedType)
+            // TODO remaining datatypes
+          }
         } else {
           if (inferredShape.numElements != tensor.shape.numElements)
             throw InvalidShapeException(
               s"Shape '${tensor.shape}' tensor is not valid for shape '$inferredShape' constant op creation.")
-          val t = Tensor.allocate(inferredDataType, inferredShape, order = RowMajorOrder)
-          for ((thisIndex, tensorIndex) <- t.flattenedIndexIterator zip tensor.flattenedIndexIterator)
-            t.setElementAtFlattenedIndex(
-              thisIndex, tensor.getElementAtFlattenedIndex(tensorIndex))(tensor.dataType.supportedType)
-          t
+          Tensor.cast(inferredDataType, tensor.asInstanceOf[Tensor[DataType]].reshape(inferredShape, copyData = false))
         }
       } else {
         tensor
@@ -120,9 +126,9 @@ trait Basic {
     */
   def zeros(shape: Shape, dataType: DataType = FLOAT32, name: String = "Zeros"): Output = {
     dataType match {
-      case BOOLEAN => constant(Tensor.fill(BOOLEAN, shape)(false), name = name)
-      case STRING => constant(Tensor.fill(STRING, shape)(""), name = name)
-      case _ => constant(Tensor.fill(dataType, shape)(0), name = name)
+      case BOOLEAN => constant(Tensor.fill[BOOLEAN.type](false, shape), name = name)
+      case STRING => constant(Tensor.fill[STRING.type]("", shape), name = name)
+      case _ => constant(Tensor.fill(dataType)(0, shape), name = name)
     }
   }
 
@@ -149,6 +155,16 @@ trait Basic {
     val outputDataType = if (dataType != null) dataType else input.dataType
     if (optimize && input.shape.isFullyDefined) {
       // We can produce a zeros tensor independent of the value of 'tensor' since the shape is known statically.
+//      outputDataType match {
+//        case STRING => zeros(input.shape, STRING)
+//        case BOOLEAN => zeros(input.shape, BOOLEAN)
+//        case INT8 => zeros(input.shape, INT8)
+//        case INT16 => zeros(input.shape, INT16)
+//        case INT32 => zeros(input.shape, INT32)
+//        case INT64 => zeros(input.shape, INT64)
+//        case FLOAT32 => zeros(input.shape, FLOAT32)
+//        case FLOAT64 => zeros(input.shape, FLOAT64)
+//      }
       zeros(input.shape, outputDataType, name)
     } else if (outputDataType != input.dataType) {
       Op.Builder(opType = "ZerosLike", name = name)
@@ -177,8 +193,8 @@ trait Basic {
     */
   def ones(shape: Shape, dataType: DataType = FLOAT32, name: String = "Ones"): Output = {
     dataType match {
-      case BOOLEAN => constant(Tensor.fill(BOOLEAN, shape)(true), name = name)
-      case _ => constant(Tensor.fill(dataType, shape)(1), name = name)
+      case BOOLEAN => constant(Tensor.fill[BOOLEAN.type](true, shape), name = name)
+      case _ => constant(Tensor.fill(dataType)(1, shape), name = name)
     }
   }
 
@@ -205,6 +221,16 @@ trait Basic {
     val outputDataType = if (dataType != null) dataType else input.dataType
     if (optimize && input.shape.isFullyDefined) {
       // We can produce a ones tensor independent of the value of 'tensor' since the shape is known statically.
+//      outputDataType match {
+//        case STRING => ones(input.shape, STRING)
+//        case BOOLEAN => ones(input.shape, BOOLEAN)
+//        case INT8 => ones(input.shape, INT8)
+//        case INT16 => ones(input.shape, INT16)
+//        case INT32 => ones(input.shape, INT32)
+//        case INT64 => ones(input.shape, INT64)
+//        case FLOAT32 => ones(input.shape, FLOAT32)
+//        case FLOAT64 => ones(input.shape, FLOAT64)
+//      }
       ones(input.shape, outputDataType, name)
     } else if (outputDataType != input.dataType) {
       Op.Builder(opType = "OnesLike", name = name)
@@ -268,7 +294,7 @@ trait Basic {
     * @param  name         Name for the created op.
     * @return Created op output.
     */
-  def placeholderWithDefault(defaultValue: Tensor, shape: Shape, name: String = "PlaceholderWithDefault"): Output = {
+  def placeholderWithDefault(defaultValue: RawTensor, shape: Shape, name: String = "PlaceholderWithDefault"): Output = {
     Op.Builder(opType = "PlaceholderWithDefault", name = name)
         .addInput(Op.createWith(nameScope = name)(constant(tensor = defaultValue, name = "DefaultValue")))
         .setAttribute("shape", shape)
@@ -325,7 +351,7 @@ trait Basic {
   def rank(input: Output, optimize: Boolean = true, name: String = "Rank"): Output = {
     val inputRank = input.shape.rank
     if (optimize && inputRank != -1)
-      constant(Tensor.fill(INT32, Shape())(inputRank), name = name)
+      constant(Tensor.fill(INT32)(inputRank, Shape()), name = name)
     else
       Op.Builder(opType = "Rank", name = name)
           .addInput(input)
@@ -376,7 +402,7 @@ trait Basic {
   def size(input: Output, dataType: DataType = INT32, optimize: Boolean = true, name: String = "Size"): Output = {
     val inputShape = input.shape
     if (optimize && inputShape.isFullyDefined)
-      constant(Tensor.fill(dataType, Shape())(inputShape.numElements), name = name)
+      constant(Tensor.fill(dataType)(inputShape.numElements, Shape()), name = name)
     else
       Op.Builder(opType = "Size", name = name)
           .addInput(input)
@@ -425,7 +451,7 @@ trait Basic {
   def shape(input: Output, dataType: DataType = INT32, optimize: Boolean = true, name: String = "Shape"): Output = {
     val inputShape = input.shape
     if (optimize && inputShape.isFullyDefined)
-      constant(inputShape.toTensor(dataType), name = name)
+      constant(inputShape.toRawTensor, name = name)
     else
       Op.Builder(opType = "Shape", name = name)
           .addInput(input)

@@ -15,11 +15,13 @@
 
 package org.platanios.tensorflow.api.tensors
 
+import org.platanios.tensorflow.api.types.DataType
+
 /** Helper trait for tagging tensor convertible objects so that implicit conversions to tensors can be used.
   *
   * @author Emmanouil Antonios Platanios
   */
 trait TensorConvertible {
   /** Returns the [[Tensor]] that this [[TensorConvertible]] object represents. */
-  def toTensor: Tensor
+  def toTensor: RawTensor
 }

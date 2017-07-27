@@ -16,7 +16,7 @@
 package org.platanios.tensorflow.api.ops
 
 import org.platanios.tensorflow.api.core.{Graph, Shape}
-import org.platanios.tensorflow.api.tensors.Tensor
+import org.platanios.tensorflow.api.tensors.{RawTensor, Tensor}
 import org.platanios.tensorflow.api.types.{DataType, FLOAT32}
 
 /**
@@ -40,7 +40,7 @@ package object variables {
     val zerosInitializer = variables.ZerosInitializer
     val onesInitializer  = variables.OnesInitializer
 
-    def constantInitializer(value: Tensor) = variables.ConstantInitializer(value)
+    def constantInitializer(value: RawTensor) = variables.ConstantInitializer(value)
     def constantInitializer(value: Output) = variables.DynamicConstantInitializer(value)
 
     type Saver = variables.Saver
