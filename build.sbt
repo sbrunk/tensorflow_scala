@@ -227,6 +227,14 @@ lazy val examples = (project in file("./examples"))
     .settings(moduleName := "tensorflow-examples", name := "TensorFlow for Scala Examples")
     .settings(commonSettings)
     .settings(publishSettings)
+    .settings(
+      PB.targets in Compile := Seq(
+        scalapb.gen() -> (sourceManaged in Compile).value // Compile label map protobuf
+      ),
+      javaCppPresetLibs ++= Seq(
+        "ffmpeg" -> "3.4.1" // Required for reading video files
+      ),
+    )
 
 lazy val site = (project in file("./site"))
     .dependsOn(api)

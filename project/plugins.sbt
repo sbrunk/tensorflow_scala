@@ -20,7 +20,8 @@ val tensorFlowVersion = "1.5.0"
 libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.ow2.asm" % "asm" % "5.0.4",
-  "org.tensorflow" % "proto" % tensorFlowVersion
+  "org.tensorflow" % "proto" % tensorFlowVersion,
+  "com.trueaccord.scalapb" %% "compilerplugin" % "0.6.7"
 )
 
 // addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "latest.release")
@@ -37,3 +38,7 @@ addSbtPlugin("org.xerial.sbt"    % "sbt-sonatype" % "2.0")
 
 // Generally useful plugins
 addSbtPlugin("io.get-coursier" %  "sbt-coursier" % "1.0.0") // Provides fast dependency resolution.
+
+// Plugins required for the examples
+addSbtPlugin("org.bytedeco" % "sbt-javacv" % "1.16")    // Java OpenCV wrapper
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.14") // Scala Protobuf support
